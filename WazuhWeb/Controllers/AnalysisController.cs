@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Web.Mvc;
@@ -86,8 +86,7 @@ namespace WazuhWeb.Controllers
 
             try
             {
-                string json =
-                    await ApiGetAsync("/agents?limit=500");
+                string json = await ApiGetAsync("/agents");
 
                 var prompt = SecurityPrompts.AgentsReport(json);
 

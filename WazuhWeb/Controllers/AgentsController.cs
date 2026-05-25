@@ -22,17 +22,15 @@ namespace WazuhWeb.Controllers
 
             try
             {
-                string json = await WazuhApiClient.GetAsync("/agents?limit=500", token);
+                string json = await WazuhApiClient.GetAsync("/agents", token);
                 var response = JsonConvert.DeserializeObject<AgentListResponse>(json);
                 var items = response?.data?.affected_items ?? new System.Collections.Generic.List<Agent>();
 
                 // Filter theo dateAdd
                 if (!string.IsNullOrEmpty(dateFrom) && DateTime.TryParse(dateFrom, out var from))
-                    items = items.Where(a => !string.IsNullOrEmpty(a.dateAdd) &&
-                        DateTime.TryParse(a.dateAdd, out var d) && d >= from).ToList();
+                    items = items.Where(a => !string.IsNullOrEmpty(a.dateAdd) && DateTime.TryParse(a.dateAdd, out var d) && d >= from).ToList();
                 if (!string.IsNullOrEmpty(dateTo) && DateTime.TryParse(dateTo, out var to))
-                    items = items.Where(a => !string.IsNullOrEmpty(a.dateAdd) &&
-                        DateTime.TryParse(a.dateAdd, out var d) && d <= to.AddDays(1)).ToList();
+                    items = items.Where(a => !string.IsNullOrEmpty(a.dateAdd) && DateTime.TryParse(a.dateAdd, out var d) && d <= to.AddDays(1)).ToList();
 
                 var data = new AgentData
                 {

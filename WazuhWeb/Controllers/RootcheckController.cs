@@ -25,7 +25,7 @@ namespace WazuhWeb.Controllers
 
             try
             {
-                string json = await WazuhApiClient.GetAsync($"/rootcheck/{agentId}?limit=500", token);
+                string json = await WazuhApiClient.GetAsync($"/rootcheck/{agentId}", token);
                 var resp = JsonConvert.DeserializeObject<RootcheckListResponse>(json);
                 var items = resp?.data?.affected_items ?? new List<RootcheckItem>();
 
@@ -58,7 +58,7 @@ namespace WazuhWeb.Controllers
         {
             try
             {
-                var json = await WazuhApiClient.GetAsync("/agents?limit=500", token);
+                var json = await WazuhApiClient.GetAsync("/agents", token);
                 var resp = JsonConvert.DeserializeObject<AgentListResponse>(json);
                 return resp?.data?.affected_items ?? new List<Agent>();
             }

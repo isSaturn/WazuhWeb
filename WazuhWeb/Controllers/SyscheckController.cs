@@ -31,7 +31,7 @@ namespace WazuhWeb.Controllers
                 string dateFilter = BuildDateFilter(dateFrom, dateTo);
 
                 var fileTask = WazuhApiClient.GetAsync(
-                    $"/syscheck/{agentId}?type=file&limit=500&sort=-date{dateFilter}", token);
+                    $"/syscheck/{agentId}?type=file&sort=-date{dateFilter}", token);
                 var regTask = WazuhApiClient.GetAsync(
                     $"/syscheck/{agentId}?type=registry_value&limit=500&sort=-date{dateFilter}", token);
 
