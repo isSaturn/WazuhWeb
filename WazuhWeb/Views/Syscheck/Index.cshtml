@@ -1,0 +1,212 @@
+@model WazuhWeb.Models.SyscheckViewModel
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewBag.Title = "File Integrity";
+    ViewBag.Subtitle = "Agent #" + Model.AgentId + " — Syscheck";
+    var allAgents = ViewBag.AllAgents as System.Collections.Generic.List<WazuhWeb.Models.Agent>
+                    ?? new System.Collections.Generic.List<WazuhWeb.Models.Agent>();
+}
+<style>
+
+    .tab-bar {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 18px;
+        background: var(--card);
+        border: 1px solid var(--brd);
+        border-radius: 10px;
+        padding: 4px;
+        width: fit-content
+    }
+
+    .tab-btn {
+        padding: 7px 16px;
+        border-radius: 7px;
+        border: none;
+        background: transparent;
+        color: var(--t2);
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: var(--sans);
+        transition: all .15s;
+        display: flex;
+        align-items: center;
+        gap: 6px
+    }
+
+        .tab-btn.on {
+            background: var(--panel);
+            color: var(--t1);
+            border: 1px solid var(--brd)
+        }
+
+    .tc {
+        display: none
+    }
+
+        .tc.on {
+            display: block
+        }
+
+    .hash {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--t3);
+        max-width: 110px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap
+    }
+
+    .path {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--t2);
+        max-width: 320px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        display: block
+    }
+
+    .top-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 18px;
+        flex-wrap: wrap
+    }
+</style>
+@*<%-- Agent + Date filter --%>*@
+@using (Html.BeginForm("Index", "Syscheck", FormMethod.Get))
+{
+    <div class="filter-bar">
+        <label>Agent:</label>
+        <select name="agentId">
+            @foreach (var a in allAgents)
+            {
+                if (a.id != "000")
+                {
+                    <option value="@a.id" @(a.id == Model.AgentId ? "selected" : "")>
+                        @a.id — @a.name (@(a.os?.platform ?? "?"))
+                    </option>
+                }
+            }
+        </select>
+        <label>📅 Từ:</label>
+        <input type="date" name="dateFrom" value="@(Model.DateFrom??"")" />
+        <label>đến:</label>
+        <input type="date" name="dateTo" value="@(Model.DateTo??"")" />
+        <button type="submit" class="btn-filter">Xem / Lọc</button>
+        @if (!string.IsNullOrEmpty(Model.DateFrom) || !string.IsNullOrEmpty(Model.DateTo))
+        {
+            <a href="@Url.Action("Index","Syscheck",new{agentId=Model.AgentId})" class="btn-reset">✕ Bỏ lọc</a>
+            <span class="filter-active-label">Đang lọc</span>
+        }
+    </div>
+}
+<div class="top-bar">
+    <div class="tab-bar">
+        <button class="tab-btn on" onclick="swTab('files',this)">
+            📄 Files <span class="badge bg-n">@Model.TotalFiles</span>
+        </button>
+        <button class="tab-btn" onclick="swTab('reg',this)">
+            🔑 Registry <span class="badge bg-n">@Model.TotalRegs</span>
+        </button>
+    </div>
+    <div style="margin-left:auto">
+        <button class="btn-ai" onclick="doAi()">
+            <span class="spin-i"></span><span class="ai-lbl">🤖 Phân tích AI</span>
+        </button>
+    </div>
+</div>
+@*<%-- FILES --%>*@
+<div id="tc-files" class="tc on">
+    <div class="card">
+        <div class="card-h">
+            <span>📄</span><span class="card-t">File Changes</span>
+            <span class="card-c">@Model.TotalFiles records</span>
+        </div>
+        @if (Model.Files != null && Model.Files.Any())
+        {
+            <table class="tbl">
+                <thead><tr><th>Loại</th><th>Đường dẫn</th><th>MD5</th><th>SHA256</th><th>Size</th><th>Changes</th><th>Ngày</th></tr></thead>
+                <tbody>
+                    @foreach (var f in Model.Files)
+                    {
+                        string bc = f.changeType == "added" ? "bg-ok" : f.changeType == "deleted" ? "bg-err" : "bg-w";
+                        string lbl = f.changeType == "added" ? "+added" : f.changeType == "deleted" ? "−deleted" : "✎modified";
+                        <tr>
+                            <td><span class="badge @bc">@lbl</span></td>
+                            <td title="@f.file"><span class="path">@f.file</span></td>
+                            <td><span class="hash" title="@f.md5">@f.md5</span></td>
+                            <td><span class="hash" title="@f.sha256">@f.sha256</span></td>
+                            <td><span class="mono">@f.size</span></td>
+                            <td><span class="mono" style="color:var(--warn)">@f.changes</span></td>
+                            <td><span class="mono" style="font-size:10px">@(f.date?.Length > 10 ? f.date.Substring(0, 10) : f.date)</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {<div style="padding:40px;text-align:center;color:var(--t3)">Không có dữ liệu.</div>}
+    </div>
+</div>
+@*<%-- REGISTRY --%>*@
+<div id="tc-reg" class="tc">
+    <div class="card">
+        <div class="card-h">
+            <span>🔑</span><span class="card-t">Registry Changes</span>
+            <span class="card-c">@Model.TotalRegs records</span>
+        </div>
+        @if (Model.Registries != null && Model.Registries.Any())
+        {
+            <table class="tbl">
+                <thead><tr><th>Registry Key</th><th>Value Name</th><th>Type</th><th>Arch</th><th>SHA256</th><th>Changes</th><th>Ngày</th></tr></thead>
+                <tbody>
+                    @foreach (var r in Model.Registries)
+                    {
+                        <tr>
+                            <td title="@r.file"><span class="path">@r.file</span></td>
+                            <td style="font-weight:600;color:var(--t1);font-size:12px">@(r.value?.name ?? "—")</td>
+                            <td><span class="badge bg-inf" style="font-size:10px">@(r.value?.type ?? "—")</span></td>
+                            <td><span class="mono" style="font-size:10px">@r.arch</span></td>
+                            <td><span class="hash" title="@r.sha256">@r.sha256</span></td>
+                            <td><span class="mono" style="color:var(--warn)">@r.changes</span></td>
+                            <td><span class="mono" style="font-size:10px">@(r.date?.Length > 10 ? r.date.Substring(0, 10) : r.date)</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {<div style="padding:40px;text-align:center;color:var(--t3)">Không có dữ liệu.</div>}
+    </div>
+</div>
+<script>
+function swTab(id,btn){
+    document.querySelectorAll('.tc').forEach(e=>e.classList.remove('on'));
+    document.querySelectorAll('.tab-btn').forEach(e=>e.classList.remove('on'));
+    document.getElementById('tc-'+id).classList.add('on');
+    btn.classList.add('on');
+}
+function doAi(){
+    var btn=document.querySelector('.btn-ai');
+    btn.disabled=true;btn.classList.add('loading');
+    var params=new URLSearchParams({
+        agentId:'@Model.AgentId',
+        dateFrom:'@(Model.DateFrom??"")',
+        dateTo:'@(Model.DateTo??"")'
+    });
+    params.append('__RequestVerificationToken',getToken());
+    openModal('Báo cáo Syscheck — Agent @Model.AgentId');
+    fetch('/Analysis/AnalyzeSyscheck',{method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body:params.toString()})
+    .then(r=>r.json()).then(d=>showResult(d))
+    .catch(e=>showResult({success:false,error:e.message}))
+    .finally(()=>{btn.disabled=false;btn.classList.remove('loading')});
+}
+</script>

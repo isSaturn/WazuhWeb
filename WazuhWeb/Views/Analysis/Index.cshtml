@@ -1,0 +1,413 @@
+﻿@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewBag.Title = "AI Reports";
+    ViewBag.Subtitle = "Phân tích an toàn thông tin — Toàn bộ agents";
+}
+<style>
+.analysis-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-bottom:24px}
+.an-card{
+    background:var(--card);border:1px solid var(--brd);border-radius:14px;
+    padding:24px;display:flex;flex-direction:column;gap:14px;
+    transition:border-color .2s;
+}
+.an-card:hover{border-color:rgba(124,58,237,.3)}
+.an-icon{font-size:32px;margin-bottom:2px}
+.an-title{font-size:16px;font-weight:700;color:var(--t1)}
+.an-desc{font-size:13px;color:var(--t2);line-height:1.6}
+.an-tags{display:flex;gap:6px;flex-wrap:wrap}
+.an-tag{font-size:10px;padding:2px 8px;border-radius:20px;background:var(--panel);
+    border:1px solid var(--brd);color:var(--t3);font-family:var(--mono)}
+.an-foot{display:flex;align-items:center;justify-content:space-between;
+    padding-top:14px;border-top:1px solid var(--brd);margin-top:auto}
+.an-scope{font-size:11px;color:var(--t3);display:flex;align-items:center;gap:5px}
+
+.btn-analyze{
+    display:inline-flex;align-items:center;gap:8px;
+    background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;
+    border:none;padding:9px 20px;border-radius:9px;
+    font-size:13px;font-weight:700;cursor:pointer;font-family:var(--sans);
+    transition:all .2s;box-shadow:0 2px 14px rgba(124,58,237,.35);white-space:nowrap;
+}
+.btn-analyze:hover{opacity:.9;transform:translateY(-1px)}
+.btn-analyze:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-analyze .sp{width:14px;height:14px;border:2px solid rgba(255,255,255,.3);
+    border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
+.btn-analyze.ld .sp{display:block}
+.btn-analyze.ld .lbl{display:none}
+
+.info-banner{
+    background:linear-gradient(135deg,rgba(124,58,237,.1),rgba(79,70,229,.08));
+    border:1px solid rgba(124,58,237,.25);border-radius:12px;
+    padding:16px 20px;margin-bottom:20px;
+    display:flex;align-items:flex-start;gap:14px;
+}
+.info-banner .ic{font-size:24px;flex-shrink:0;margin-top:2px}
+.info-banner-title{font-size:14px;font-weight:700;color:var(--t1);margin-bottom:4px}
+.info-banner-sub{font-size:12.5px;color:var(--t2);line-height:1.6}
+
+.prog-bar-wrap{display:none;margin-top:14px}
+.prog-bar-wrap.show{display:block}
+.prog-label{font-size:12px;color:var(--t2);margin-bottom:6px}
+.prog-bar{height:4px;background:var(--panel);border-radius:4px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,#7c3aed,#00d4ff);
+    border-radius:4px;width:0%;transition:width .3s;animation:prog 2s ease-in-out infinite alternate}
+@@keyframes prog{0%{width:20%}100%{width:95%}}
+
+    .an-card--full {
+        grid-column: 1 / -1;
+    }
+
+    .st-item {
+        font-size: 12px;
+        color: var(--t3);
+        transition: color .25s;
+        font-family: var(--mono);
+    }
+
+        .st-item.active {
+            color: #7c3aed;
+            font-weight: 700;
+        }
+
+        .st-item.done {
+            color: #10b981;
+        }
+
+</style>
+<div class="info-banner">
+    <div class="ic">ℹ️</div>
+    <div>
+        <div class="info-banner-title">Phân tích AI tự động — Tất cả Agents</div>
+        <div class="info-banner-sub">
+            Mỗi nút sẽ thu thập dữ liệu từ <strong>tất cả agents</strong> trong hệ thống,
+            gửi đến Ollama để phân tích và tạo báo cáo an toàn thông tin chuyên sâu bằng tiếng Việt.<br>
+            Có thể lọc theo khoảng thời gian để tập trung vào sự kiện trong giai đoạn cụ thể.
+        </div>
+    </div>
+</div>
+@*<%-- Date Filter --%>*@
+<div class="filter-bar" id="dateFilterBar">
+    <label>📅 Lọc theo thời gian:</label>
+    <input type="date" id="fFrom" style="background:var(--panel);border:1px solid var(--brd);
+        color:var(--t1);padding:6px 10px;border-radius:7px;font-size:12px;color-scheme:dark" />
+    <span style="color:var(--t3);font-size:12px">đến</span>
+    <input type="date" id="fTo" style="background:var(--panel);border:1px solid var(--brd);
+        color:var(--t1);padding:6px 10px;border-radius:7px;font-size:12px;color-scheme:dark" />
+    <button class="btn-filter" onclick="clearDates()">✕ Xóa</button>
+    <span style="font-size:11px;color:var(--t3)">(để trống = lấy toàn bộ dữ liệu)</span>
+</div>
+<div class="analysis-grid">
+    @*<%-- AGENTS --%>*@
+    <div class="an-card">
+        <div>
+            <div class="an-icon">🖥️</div>
+            <div class="an-title">Phân tích Agents</div>
+        </div>
+        <div class="an-desc">
+            Đánh giá tổng quan toàn bộ hệ thống giám sát: trạng thái kết nối, phiên bản Wazuh,
+            phân vùng mạng, agent offline và các rủi ro bảo mật.
+        </div>
+        <div class="an-tags">
+            <span class="an-tag">Agent Status</span>
+            <span class="an-tag">OS Inventory</span>
+            <span class="an-tag">Network</span>
+            <span class="an-tag">Version Audit</span>
+        </div>
+        <div class="an-foot">
+            <div class="an-scope">🌐 Toàn bộ agents trong hệ thống</div>
+            <button class="btn-analyze" id="btnAgents"
+                    onclick="doAnalyze('AnalyzeAgents','Báo cáo Agents — Toàn hệ thống','btnAgents')">
+                <div class="sp"></div><span class="lbl">🤖 Phân tích</span>
+            </button>
+        </div>
+        <div class="prog-bar-wrap" id="progAgents">
+            <div class="prog-label" id="lblAgents">Đang thu thập dữ liệu...</div>
+            <div class="prog-bar"><div class="prog-fill"></div></div>
+        </div>
+    </div>
+    @*<%-- SYSCHECK --%>*@
+    <div class="an-card">
+        <div>
+            <div class="an-icon">📁</div>
+            <div class="an-title">Phân tích File Integrity (Syscheck)</div>
+        </div>
+        <div class="an-desc">
+            Phân tích toàn vẹn hệ thống tệp và registry từ tất cả agents:
+            phát hiện thay đổi đáng ngờ, ADS, file thực thi mới,
+            registry persistence và các chỉ số xâm nhập (IoC).
+        </div>
+        <div class="an-tags">
+            <span class="an-tag">File Changes</span>
+            <span class="an-tag">Registry</span>
+            <span class="an-tag">IoC</span>
+            <span class="an-tag">ADS Detection</span>
+            <span class="an-tag">Malware Signs</span>
+        </div>
+        <div class="an-foot">
+            <div class="an-scope">🔎 Tất cả agents (file + registry)</div>
+            <button class="btn-analyze" id="btnSys"
+                    onclick="doAnalyze('AnalyzeSyscheck','Báo cáo File Integrity — Toàn hệ thống','btnSys')">
+                <div class="sp"></div><span class="lbl">🤖 Phân tích</span>
+            </button>
+        </div>
+        <div class="prog-bar-wrap" id="progSys">
+            <div class="prog-label" id="lblSys">Đang thu thập dữ liệu từ các agents...</div>
+            <div class="prog-bar"><div class="prog-fill"></div></div>
+        </div>
+    </div>
+    @*<%-- SCA --%>*@
+    <div class="an-card">
+        <div>
+            <div class="an-icon">✅</div>
+            <div class="an-title">Phân tích SCA — CIS Benchmark</div>
+        </div>
+        <div class="an-desc">
+            Đánh giá tuân thủ cấu hình bảo mật của tất cả agents theo CIS Benchmark:
+            điểm số, các lỗi nghiêm trọng, hướng dẫn khắc phục và lộ trình cải thiện.
+        </div>
+        <div class="an-tags">
+            <span class="an-tag">CIS Benchmark</span>
+            <span class="an-tag">Compliance</span>
+            <span class="an-tag">PCI DSS</span>
+            <span class="an-tag">SOC 2</span>
+            <span class="an-tag">Hardening</span>
+        </div>
+        <div class="an-foot">
+            <div class="an-scope">📋 Policy + Failed checks tất cả agents</div>
+            <button class="btn-analyze" id="btnSca"
+                    onclick="doAnalyze('AnalyzeSca','Báo cáo SCA — Toàn hệ thống','btnSca')">
+                <div class="sp"></div><span class="lbl">🤖 Phân tích</span>
+            </button>
+        </div>
+        <div class="prog-bar-wrap" id="progSca">
+            <div class="prog-label" id="lblSca">Đang lấy SCA checks từ các agents...</div>
+            <div class="prog-bar"><div class="prog-fill"></div></div>
+        </div>
+    </div>
+    @*<%-- ROOTCHECK --%>*@
+    <div class="an-card">
+        <div>
+            <div class="an-icon">🔍</div>
+            <div class="an-title">Phân tích Rootcheck</div>
+        </div>
+        <div class="an-desc">
+            Phân tích rootkit, malware và phần mềm vi phạm chính sách từ tất cả agents:
+            ADS nguy hiểm, P2P tools, trojan indicators và quy trình ứng phó sự cố.
+        </div>
+        <div class="an-tags">
+            <span class="an-tag">Rootkit</span>
+            <span class="an-tag">Malware</span>
+            <span class="an-tag">P2P Detection</span>
+            <span class="an-tag">ADS</span>
+            <span class="an-tag">Incident Response</span>
+        </div>
+        <div class="an-foot">
+            <div class="an-scope">🚨 Tất cả findings từ mọi agents</div>
+            <button class="btn-analyze" id="btnRoot"
+                    onclick="doAnalyze('AnalyzeRootcheck','Báo cáo Rootcheck — Toàn hệ thống','btnRoot')">
+                <div class="sp"></div><span class="lbl">🤖 Phân tích</span>
+            </button>
+        </div>
+        <div class="prog-bar-wrap" id="progRoot">
+            <div class="prog-label" id="lblRoot">Đang kiểm tra rootcheck toàn hệ thống...</div>
+            <div class="prog-bar"><div class="prog-fill"></div></div>
+        </div>
+    </div>
+    @*<%-- COMPREHENSIVE --%>*@
+    <div class="an-card an-card--full">
+        <div>
+            <div class="an-icon">📊</div>
+            <div class="an-title">
+                Báo cáo Tổng hợp — Toàn Hệ Thống
+                <span style="display:inline-block;margin-left:8px;font-size:9px;
+                    font-weight:800;background:linear-gradient(135deg,#7c3aed,#00d4ff);
+                    color:#fff;padding:2px 8px;border-radius:20px;vertical-align:middle">ALL-IN-ONE</span>
+            </div>
+        </div>
+        <div class="an-desc">
+            Chạy tuần tự <strong>Agents → Syscheck → SCA → Rootcheck</strong>, gộp toàn bộ kết quả
+            rồi tổng hợp thành một báo cáo an toàn thông tin toàn diện duy nhất:
+            Executive Summary, Risk Matrix, Action Plan và điểm bảo mật tổng thể.
+        </div>
+        <div class="an-tags">
+            <span class="an-tag">Agents</span>
+            <span class="an-tag">File Integrity</span>
+            <span class="an-tag">SCA / CIS</span>
+            <span class="an-tag">Rootcheck</span>
+            <span class="an-tag">Risk Matrix</span>
+            <span class="an-tag">Executive Summary</span>
+        </div>
+        <div class="an-foot">
+            <div class="an-scope">🌐 4 modules · Tất cả agents · Báo cáo đầy đủ</div>
+            <button class="btn-analyze" id="btnFull" onclick="doFullAnalyze()">
+                <div class="sp"></div><span class="lbl">🤖 Phân tích Tổng hợp</span>
+            </button>
+        </div>
+        <div class="prog-bar-wrap" id="progFull">
+            <div class="prog-label" id="lblFull">Đang khởi động...</div>
+            <div class="prog-bar"><div class="prog-fill"></div></div>
+        </div>
+        <div id="stepTracker" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;
+            background:var(--panel);border-radius:10px;padding:10px 16px;margin-top:4px">
+            <span class="st-item" id="st1">⬜ Agents</span>
+            <span style="color:var(--t3);font-size:11px">→</span>
+            <span class="st-item" id="st2">⬜ Syscheck</span>
+            <span style="color:var(--t3);font-size:11px">→</span>
+            <span class="st-item" id="st3">⬜ SCA</span>
+            <span style="color:var(--t3);font-size:11px">→</span>
+            <span class="st-item" id="st4">⬜ Rootcheck</span>
+            <span style="color:var(--t3);font-size:11px">→</span>
+            <span class="st-item" id="st5">⬜ Tổng hợp</span>
+        </div>
+    </div>
+</div>
+@*<%-- Note --%>*@
+<div style="background:var(--panel);border:1px solid var(--brd);border-radius:10px;
+    padding:14px 18px;font-size:12.5px;color:var(--t3);display:flex;gap:10px;align-items:flex-start">
+    <span>⏱️</span>
+    <div>
+        <strong style="color:var(--t2)">Lưu ý về thời gian phân tích:</strong>
+        Quá trình phân tích phụ thuộc vào số lượng agents và tốc độ của model Ollama.
+        Các phân tích Syscheck/SCA/Rootcheck thu thập dữ liệu từ tất cả agents nên có thể mất
+        <strong style="color:var(--warn)">1–5 phút</strong>. Vui lòng đợi và không tắt trang.
+    </div>
+</div>
+<script>
+    function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+    function clearDates() {
+        document.getElementById('fFrom').value = '';
+        document.getElementById('fTo').value = '';
+    }
+
+    function doAnalyze(action, title, btnId) {
+        var btn = document.getElementById(btnId);
+        var progWrap = document.getElementById('prog' + btnId.replace('btn', ''));
+        var from = document.getElementById('fFrom').value;
+        var to = document.getElementById('fTo').value;
+
+        btn.disabled = true; btn.classList.add('ld');
+        if (progWrap) progWrap.classList.add('show');
+
+        var params = new URLSearchParams({ dateFrom: from || '', dateTo: to || '' });
+        params.append('__RequestVerificationToken', getToken());
+
+        openModal(title);
+        document.getElementById('mLoadModel').textContent =
+            (from || to) ? `Lọc: ${from || '...'} → ${to || '...'}` : 'Tất cả dữ liệu — Đang phân tích với Ollama';
+
+        fetch('/Analysis/' + action, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
+        })
+            .then(r => r.json())
+            .then(d => showResult(d))
+            .catch(e => showResult({ success: false, error: e.message }))
+            .finally(() => {
+                btn.disabled = false; btn.classList.remove('ld');
+                if (progWrap) progWrap.classList.remove('show');
+            });
+    }
+    async function doFullAnalyze() {
+
+        var btn = document.getElementById('btnFull');
+        var progWrap = document.getElementById('progFull');
+        var lbl = document.getElementById('lblFull');
+        var tracker = document.getElementById('stepTracker');
+        var from = document.getElementById('fFrom').value;
+        var to = document.getElementById('fTo').value;
+
+        btn.disabled = true; btn.classList.add('ld');
+        progWrap.classList.add('show');
+        tracker.style.display = 'flex';
+
+        ['st1', 'st2', 'st3', 'st4', 'st5'].forEach(function (id) { setStep(id, ''); });
+
+        var params = new URLSearchParams({ dateFrom: from || '', dateTo: to || '' });
+        params.append('__RequestVerificationToken', getToken());
+
+        var steps = [
+            { stId: 'st1', label: 'Agents', action: 'AnalyzeAgents', title: 'Báo cáo Agents' },
+            { stId: 'st2', label: 'Syscheck', action: 'AnalyzeSyscheck', title: 'Báo cáo File Integrity' },
+            { stId: 'st3', label: 'SCA', action: 'AnalyzeSca', title: 'Báo cáo SCA' },
+            { stId: 'st4', label: 'Rootcheck', action: 'AnalyzeRootcheck', title: 'Báo cáo Rootcheck' },
+        ];
+
+        // Mở modal ngay, sẽ stream từng section vào
+        openModal('Báo cáo Tổng hợp — Toàn Hệ Thống');
+        document.getElementById('mLoadModel').textContent =
+            (from || to) ? 'Lọc: ' + (from || '...') + ' → ' + (to || '...') : 'Tất cả dữ liệu — Phân tích 4 modules';
+
+        var sections = [];   // mảng { title, report } để ghép cuối
+
+        try {
+            for (var i = 0; i < steps.length; i++) {
+                var s = steps[i];
+                setStep(s.stId, 'active');
+                lbl.textContent = '[' + (i + 1) + '/4] Đang phân tích ' + s.label + '...';
+
+                var r = await fetch('/Analysis/' + s.action, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: params.toString()
+                });
+                var d = await r.json();
+
+                var sectionReport = d.success ? d.report : ('❌ Lỗi ' + s.label + ': ' + (d.error || '?'));
+                sections.push({ title: s.title, report: sectionReport });
+                setStep(s.stId, 'done');
+
+                // Chờ 5 giây trước khi gọi bước tiếp theo (tránh 429)
+                if (i < steps.length - 1) {
+                    lbl.textContent = '⏳ Chờ 5 giây trước bước tiếp theo...';
+                    await sleep(5000);
+                }
+            }
+
+            // ── Ghép 4 báo cáo thành 1 phía client, KHÔNG gọi AI lần 5 ──
+            setStep('st5', 'active');
+            lbl.textContent = '[5/5] Ghép báo cáo tổng hợp...';
+
+            var dateLabel = (from || to)
+                ? '\n> 📅 Khoảng thời gian: **' + (from || '...') + '** → **' + (to || '...') + '**\n'
+                : '';
+
+            var combined =
+                '# 📋 BÁO CÁO AN TOÀN THÔNG TIN TỔNG HỢP\n' +
+                '> Tổng hợp từ 4 modules phân tích — Wazuh SIEM\n' +
+                dateLabel + '\n---\n\n';
+
+            var icons = ['🖥️', '📁', '✅', '🔍'];
+            sections.forEach(function (sec, idx) {
+                combined += icons[idx] + ' ' + sec.title + '\n\n';
+                combined += sec.report + '\n\n---\n\n';
+            });
+
+            setStep('st5', 'done');
+
+            // Dùng lại showResult với cấu trúc giống endpoint thật
+            showResult({
+                success: true,
+                report: combined,
+                title: 'Báo cáo Tổng hợp An Toàn Thông Tin — Toàn Hệ Thống',
+                model: 'combined (4 modules)',
+                duration: null
+            });
+
+        } catch (e) {
+            showResult({ success: false, error: e.message });
+        } finally {
+            btn.disabled = false; btn.classList.remove('ld');
+            progWrap.classList.remove('show');
+        }
+    }
+
+    function setStep(id, state) {
+        var labels = { st1: 'Agents', st2: 'Syscheck', st3: 'SCA', st4: 'Rootcheck', st5: 'Tổng hợp' };
+        var icon = state === 'done' ? '✅' : state === 'active' ? '🔄' : '⬜';
+        var el = document.getElementById(id);
+        el.textContent = icon + ' ' + labels[id];
+        el.className = 'st-item' + (state ? ' ' + state : '');
+    }
+</script>

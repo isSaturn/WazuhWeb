@@ -1,0 +1,588 @@
+@model WazuhWeb.Models.ScaPageViewModel
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewBag.Title = "SCA Checks";
+    ViewBag.Subtitle = $"Agent #{ViewBag.AgentId} — Security Configuration Assessment";
+}
+@using WazuhWeb.Models
+<style>
+
+    /* ── SCA SUMMARY ── */
+    .sca-summary {
+        display: grid;
+        grid-template-columns: 200px 1fr;
+        gap: 20px;
+        margin-bottom: 24px;
+    }
+
+    .score-card {
+        background: var(--card);
+        border: 1px solid var(--brd);
+        border-radius: 12px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .score-ring {
+        position: relative;
+        width: 100px;
+        height: 100px;
+    }
+
+        .score-ring svg {
+            transform: rotate(-90deg);
+        }
+
+    .score-number {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: var(--mono);
+        font-size: 28px;
+        font-weight: 700;
+    }
+
+    .score-label {
+        font-size: 11px;
+        color: var(--t2);
+        margin-top: 10px;
+        letter-spacing: .5px;
+    }
+
+    .policy-meta {
+        background: var(--card);
+        border: 1px solid var(--brd);
+        border-radius: 12px;
+        padding: 20px 24px;
+    }
+
+    .policy-name {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--t1);
+        margin-bottom: 16px;
+    }
+
+    .meta-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+    }
+
+    .meta-value {
+        font-family: var(--mono);
+        font-size: 20px;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+
+    .meta-key {
+        font-size: 10px;
+        color: var(--t2);
+        letter-spacing: .5px;
+        margin-top: 2px;
+    }
+
+    /* ── AGENT SELECT BAR ── */
+    .agent-select-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+        background: var(--card);
+        border: 1px solid var(--brd);
+        border-radius: 10px;
+        padding: 10px 16px;
+    }
+
+        .agent-select-bar label {
+            font-size: 12px;
+            color: var(--t2);
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .agent-select-bar select {
+            background: var(--panel);
+            border: 1px solid var(--brd);
+            color: var(--t1);
+            padding: 6px 10px;
+            border-radius: 7px;
+            font-size: 12px;
+            font-family: var(--sans);
+            cursor: pointer;
+            min-width: 260px;
+        }
+
+            .agent-select-bar select:focus {
+                outline: none;
+                border-color: var(--acc);
+            }
+
+    .btn-go {
+        background: var(--acc);
+        color: #000;
+        border: none;
+        padding: 6px 14px;
+        border-radius: 7px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: var(--sans);
+        transition: opacity .15s;
+    }
+
+        .btn-go:hover {
+            opacity: .85;
+        }
+
+    /* Agent status dot */
+    .agent-dot {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        margin-right: 5px;
+        vertical-align: middle;
+    }
+
+    /* ── SCA FILTER BAR ── */
+    .sca-filter-bar {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+        align-items: center;
+    }
+
+    .filter-btn {
+        padding: 6px 14px;
+        border-radius: 20px;
+        border: 1px solid var(--brd);
+        background: var(--card);
+        color: var(--t2);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: var(--sans);
+        transition: all .15s;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+        .filter-btn.active {
+            border-color: var(--acc);
+            color: var(--acc);
+            background: var(--acc-d);
+        }
+
+        .filter-btn.f-fail.active {
+            border-color: var(--err);
+            color: var(--err);
+            background: var(--err-d);
+        }
+
+        .filter-btn.f-pass.active {
+            border-color: var(--ok);
+            color: var(--ok);
+            background: var(--ok-d);
+        }
+
+    .search-input {
+        margin-left: auto;
+        background: var(--card);
+        border: 1px solid var(--brd);
+        color: var(--t1);
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-family: var(--sans);
+        width: 220px;
+    }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--acc);
+        }
+
+        .search-input::placeholder {
+            color: var(--t3);
+        }
+
+    /* ── CARD HEADER ── */
+    .sca-card-header {
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--brd);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .sca-card-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--t1);
+    }
+
+    .sca-card-count {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--t2);
+        background: var(--panel);
+        padding: 2px 8px;
+        border-radius: 20px;
+        border: 1px solid var(--brd);
+        margin-left: auto;
+    }
+
+    /* ── DETAIL ROW ── */
+    .detail-row {
+        display: none;
+    }
+
+        .detail-row.open {
+            display: table-row;
+        }
+
+    .detail-cell {
+        background: var(--panel);
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--brd);
+    }
+
+    .detail-section {
+        margin-bottom: 14px;
+    }
+
+    .detail-section-label {
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 1.2px;
+        text-transform: uppercase;
+        color: var(--t3);
+        margin-bottom: 6px;
+    }
+
+    .detail-text {
+        font-size: 12.5px;
+        color: var(--t2);
+        line-height: 1.6;
+    }
+
+    .remediation-box {
+        background: var(--acc-d);
+        border: 1px solid rgba(0,212,255,.2);
+        border-radius: 8px;
+        padding: 12px 14px;
+        font-size: 12.5px;
+        color: var(--acc);
+        line-height: 1.6;
+    }
+
+    .command-box {
+        background: var(--bg);
+        border: 1px solid var(--brd);
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: #7dd3fc;
+        white-space: pre-wrap;
+        word-break: break-all;
+    }
+
+    .compliance-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-top: 4px;
+    }
+
+    .compliance-tag {
+        font-family: var(--mono);
+        font-size: 10px;
+        padding: 2px 7px;
+        border-radius: 4px;
+        background: var(--card);
+        border: 1px solid var(--brd);
+        color: var(--t2);
+    }
+
+    .expand-btn {
+        background: var(--panel);
+        border: 1px solid var(--brd);
+        color: var(--acc);
+        padding: 3px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 11px;
+        font-family: var(--sans);
+    }
+
+        .expand-btn:hover {
+            background: var(--acc-d);
+        }
+
+    /* ── BADGE ── */
+    .badge-success {
+        background: var(--ok-d);
+        color: var(--ok);
+        border: 1px solid rgba(0,227,150,.25);
+    }
+
+    .badge-danger {
+        background: var(--err-d);
+        color: var(--err);
+        border: 1px solid rgba(255,69,96,.25);
+    }
+
+    .badge-neutral {
+        background: var(--panel);
+        color: var(--t2);
+        border: 1px solid var(--brd);
+    }
+</style>
+<!-- ── Agent selector (dynamic từ ViewBag.AllAgents) ── -->
+<div class="agent-select-bar">
+    <label>Agent:</label>
+    <select id="agentSelect">
+        @{
+            var allAgents = ViewBag.AllAgents as List<WazuhWeb.Models.Agent>;
+            string currentId = ViewBag.AgentId as string ?? "001";
+
+            if (allAgents != null && allAgents.Count > 0)
+            {
+                foreach (var agent in allAgents)
+                {
+                    string selected = agent.id == currentId ? "selected" : "";
+                    string status = agent.status ?? "unknown";
+                    string label = $"{agent.id} — {agent.name ?? "unknown"} ({status})";
+                    <option value="@agent.id" @selected>@label</option>
+                }
+            }
+            else
+            {
+                <!-- Fallback nếu chưa có AllAgents trong ViewBag -->
+                <option value="001" @(currentId == "001" ? "selected" : "")>001 — Wazuh-dung (Windows)</option>
+                <option value="000" @(currentId == "000" ? "selected" : "")>000 — Manager (Ubuntu)</option>
+            }
+        }
+    </select>
+    <button class="btn-go" onclick="goToAgent()">Xem →</button>
+    @* Hiện trạng thái agent đang xem *@
+    @if (allAgents != null)
+    {
+        var cur = allAgents.FirstOrDefault(a => a.id == currentId);
+        if (cur != null)
+        {
+            string dotColor = cur.status == "active" ? "var(--ok)" : "var(--err)";
+            <span style="margin-left:6px;font-size:11px;color:var(--t2)">
+                <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:@dotColor;margin-right:4px"></span>
+                @cur.status — @cur.ip — OS: @(cur.os?.name ?? "N/A")
+            </span>
+        }
+    }
+</div>
+@if (Model.Policy != null)
+{
+    int score = Model.Policy.score;
+    string scoreColor = score >= 70 ? "var(--ok)" : score >= 40 ? "var(--warn)" : "var(--err)";
+    double dashOffset = 283 - (283.0 * score / 100.0);
+
+    <div class="sca-summary">
+        <div class="score-card">
+            <div class="score-ring">
+                <svg viewBox="0 0 100 100" width="100" height="100">
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="var(--brd)" stroke-width="8" />
+                    <circle cx="50" cy="50" r="45" fill="none"
+                            stroke="@scoreColor" stroke-width="8"
+                            stroke-dasharray="283"
+                            stroke-dashoffset="@dashOffset.ToString("F1")"
+                            stroke-linecap="round" />
+                </svg>
+                <div class="score-number" style="color:@scoreColor">@score</div>
+            </div>
+            <div class="score-label">Score / 100</div>
+        </div>
+        <div class="policy-meta">
+            <div class="policy-name">@Model.Policy.name</div>
+            <div class="meta-grid">
+                <div>
+                    <div class="meta-value" style="color:var(--ok)">@Model.Policy.pass</div>
+                    <div class="meta-key">✅ Passed</div>
+                </div>
+                <div>
+                    <div class="meta-value" style="color:var(--err)">@Model.Policy.fail</div>
+                    <div class="meta-key">❌ Failed</div>
+                </div>
+                <div>
+                    <div class="meta-value" style="color:var(--t3)">@Model.Policy.invalid</div>
+                    <div class="meta-key">⚪ Invalid</div>
+                </div>
+                <div>
+                    <div class="meta-value" style="color:var(--t2)">@Model.Policy.total_checks</div>
+                    <div class="meta-key">📋 Total</div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+@if (Model.Checks != null && Model.Checks.Count > 0)
+{
+    <div class="sca-filter-bar">
+        <button class="filter-btn active" data-filter="all" onclick="filterChecks('all',this)">
+            Tất cả <span class="badge badge-neutral">@Model.Checks.Count</span>
+        </button>
+        <button class="filter-btn f-fail" data-filter="failed" onclick="filterChecks('failed',this)">
+            ❌ Failed <span class="badge badge-danger">@Model.Checks.Count(c => c.result == "failed")</span>
+        </button>
+        <button class="filter-btn f-pass" data-filter="passed" onclick="filterChecks('passed',this)">
+            ✅ Passed <span class="badge badge-success">@Model.Checks.Count(c => c.result == "passed")</span>
+        </button>
+        <input type="text" class="search-input" id="searchInput"
+               placeholder="🔍  Tìm kiếm check..." oninput="searchChecks()" />
+    </div>
+
+    <div class="card">
+        <div class="sca-card-header">
+            <span style="font-size:16px">✅</span>
+            <span class="sca-card-title">CIS Benchmark Checks</span>
+            <span class="sca-card-count" id="visibleCount">@Model.Checks.Count checks</span>
+        </div>
+        <table class="tbl" id="checksTable">
+            <thead>
+                <tr>
+                    <th style="width:60px">ID</th>
+                    <th style="width:90px">Kết quả</th>
+                    <th>Tên kiểm tra</th>
+                    <th style="width:80px">Detail</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var check in Model.Checks)
+                {
+                    string cisId = check.compliance?.FirstOrDefault(c => c.key == "cis")?.value ?? "";
+
+                    <tr class="check-row" data-result="@check.result" data-title="@check.title.ToLower()">
+                        <td>
+                            <span class="mono" style="font-size:10px;color:var(--t3)">@check.id</span>
+                            @if (!string.IsNullOrEmpty(cisId))
+                            {
+                                <br /><span class="mono" style="font-size:9px;color:var(--acc)">CIS @cisId</span>
+                            }
+                        </td>
+                        <td>
+                            <span class="badge @(check.result=="passed"?"badge-success":check.result=="failed"?"badge-danger":"badge-neutral")">
+                                @(check.result == "passed" ? "✅" : check.result == "failed" ? "❌" : "—") @check.result
+                            </span>
+                        </td>
+                        <td style="color:var(--t1);font-size:12.5px;font-weight:500">@check.title</td>
+                        <td>
+                            <button class="expand-btn" onclick="toggleDetail('@check.id')">+ Chi tiết</button>
+                        </td>
+                    </tr>
+
+                    <tr class="detail-row" id="detail-@check.id">
+                        <td colspan="4" class="detail-cell">
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                                <div>
+                                    @if (!string.IsNullOrEmpty(check.description))
+                                    {
+                                        <div class="detail-section">
+                                            <div class="detail-section-label">Mô tả</div>
+                                            <div class="detail-text">@check.description</div>
+                                        </div>
+                                    }
+                                    @if (!string.IsNullOrEmpty(check.rationale))
+                                    {
+                                        <div class="detail-section">
+                                            <div class="detail-section-label">Lý do</div>
+                                            <div class="detail-text">@check.rationale</div>
+                                        </div>
+                                    }
+                                    @if (check.compliance != null && check.compliance.Count > 0)
+                                    {
+                                        <div class="detail-section">
+                                            <div class="detail-section-label">Compliance Mapping</div>
+                                            <div class="compliance-tags">
+                                                @foreach (var c in check.compliance)
+                                                {
+                                                    <span class="compliance-tag">@c.key: @c.value</span>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                                <div>
+                                    @if (!string.IsNullOrEmpty(check.remediation))
+                                    {
+                                        <div class="detail-section">
+                                            <div class="detail-section-label">💡 Remediation</div>
+                                            <div class="remediation-box">@check.remediation</div>
+                                        </div>
+                                    }
+                                    @if (!string.IsNullOrEmpty(check.command))
+                                    {
+                                        <div class="detail-section">
+                                            <div class="detail-section-label">⚡ Command</div>
+                                            <div class="command-box">@check.command</div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+<script>
+    function toggleDetail(id) {
+        var row = document.getElementById('detail-' + id);
+        var isOpen = row.classList.contains('open');
+        document.querySelectorAll('.detail-row.open').forEach(function (r) { r.classList.remove('open'); });
+        if (!isOpen) row.classList.add('open');
+    }
+
+    function filterChecks(result, btn) {
+        document.querySelectorAll('.filter-btn').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        applyFilters();
+    }
+
+    function searchChecks() { applyFilters(); }
+
+    function applyFilters() {
+        var activeFilter = document.querySelector('.filter-btn.active') ?.dataset.filter || 'all';
+        var search = document.getElementById('searchInput').value.toLowerCase();
+        var rows = document.querySelectorAll('.check-row');
+        var visible = 0;
+        rows.forEach(function (row) {
+            var matchFilter = activeFilter === 'all' || row.dataset.result === activeFilter;
+            var matchSearch = !search || row.dataset.title.includes(search);
+            if (matchFilter && matchSearch) {
+                row.style.display = '';
+                visible++;
+            } else {
+                row.style.display = 'none';
+                var id = row.querySelector('.expand-btn') ?.getAttribute('onclick') ?.match(/'([^']+)'/) ?.[1];
+                if (id) {
+                    var detail = document.getElementById('detail-' + id);
+                    if (detail) detail.classList.remove('open');
+                }
+            }
+        });
+        document.getElementById('visibleCount').textContent = visible + ' checks';
+    }
+
+    function goToAgent() {
+        var id = document.getElementById('agentSelect').value;
+        window.location.href = '/Sca/Index/' + id;
+    }
+</script>
