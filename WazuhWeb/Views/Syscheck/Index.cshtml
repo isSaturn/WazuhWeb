@@ -94,16 +94,7 @@
                 }
             }
         </select>
-        <label>📅 Từ:</label>
-        <input type="date" name="dateFrom" value="@(Model.DateFrom??"")" />
-        <label>đến:</label>
-        <input type="date" name="dateTo" value="@(Model.DateTo??"")" />
-        <button type="submit" class="btn-filter">Xem / Lọc</button>
-        @if (!string.IsNullOrEmpty(Model.DateFrom) || !string.IsNullOrEmpty(Model.DateTo))
-        {
-            <a href="@Url.Action("Index","Syscheck",new{agentId=Model.AgentId})" class="btn-reset">✕ Bỏ lọc</a>
-            <span class="filter-active-label">Đang lọc</span>
-        }
+        <button type="submit" class="btn-filter">Xem</button>
     </div>
 }
 <div class="top-bar">
@@ -195,11 +186,7 @@ function swTab(id,btn){
 function doAi(){
     var btn=document.querySelector('.btn-ai');
     btn.disabled=true;btn.classList.add('loading');
-    var params=new URLSearchParams({
-        agentId:'@Model.AgentId',
-        dateFrom:'@(Model.DateFrom??"")',
-        dateTo:'@(Model.DateTo??"")'
-    });
+    var params=new URLSearchParams();
     params.append('__RequestVerificationToken',getToken());
     openModal('Báo cáo Syscheck — Agent @Model.AgentId');
     fetch('/Analysis/AnalyzeSyscheck',{method:'POST',

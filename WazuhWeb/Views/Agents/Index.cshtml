@@ -2,9 +2,6 @@
 @{
     Layout = "~/Views/Shared/_Layout.cshtml";
     ViewBag.Title = "Agents";
-    string dateFrom = ViewBag.DateFrom as string ?? "";
-    string dateTo = ViewBag.DateTo as string ?? "";
-    bool filtered = !string.IsNullOrEmpty(dateFrom) || !string.IsNullOrEmpty(dateTo);
 }
 <style>
 
@@ -110,22 +107,6 @@
     int wins = items.Count(a => a.os?.platform == "windows");
     int lin = items.Count(a => a.os?.platform == "ubuntu" || a.os?.platform == "linux");
 }
-@*<%-- Date Filter --%>*@
-@using (Html.BeginForm("Index", "Agents", FormMethod.Get))
-{
-    <div class="filter-bar">
-        <label>📅 Lọc theo ngày thêm:</label>
-        <input type="date" name="dateFrom" value="@dateFrom" />
-        <span style="color:var(--t3);font-size:12px">đến</span>
-        <input type="date" name="dateTo" value="@dateTo" />
-        <button type="submit" class="btn-filter">Lọc</button>
-        @if (filtered)
-        {
-            <a href="@Url.Action("Index","Agents")" class="btn-reset">✕ Bỏ lọc</a>
-            <span class="filter-active-label">Đang lọc</span>
-        }
-    </div>
-}
 <div class="stats">
     <div class="sc">
         <div class="si" style="background:var(--acc-d)">🖥️</div>
@@ -145,9 +126,9 @@
     </div>
 </div>
 <div class="top-row">
-    <div style="font-size:13px;color:var(--t2)">@total agents @(filtered ? "(đang lọc)" : "")</div>
+    <div style="font-size:13px;color:var(--t2)">@total agents</div>
     <div style="margin-left:auto">
-        <button class="btn-ai" onclick="runAnalysis('AnalyzeAgents','Báo cáo Agents — Toàn hệ thống',{})">
+        <button class="btn-ai" onclick="runAnalysis('AnalyzeAgents','Báo cáo Agents — Toàn hệ thống')">
             <span class="spin-i"></span><span class="ai-lbl">🤖 Phân tích AI Agents</span>
         </button>
     </div>

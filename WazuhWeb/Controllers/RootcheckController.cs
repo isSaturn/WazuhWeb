@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using System.Web.Mvc;
 using Newtonsoft.Json;
@@ -11,7 +10,7 @@ namespace WazuhWeb.Controllers
 {
     public class RootcheckController : Controller
     {
-        public async Task<ActionResult> Index(string agentId, string dateFrom = null, string dateTo = null)
+        public async Task<ActionResult> Index(string agentId)
         {
             string token = Session["WazuhToken"] as string;
             if (string.IsNullOrEmpty(token))
@@ -27,21 +26,11 @@ namespace WazuhWeb.Controllers
                 var resp = JsonConvert.DeserializeObject<RootcheckListResponse>(json);
                 var items = resp?.data?.affected_items ?? new List<RootcheckItem>();
 
-                // Filter theo date_last
-                if (!string.IsNullOrEmpty(dateFrom) && DateTime.TryParse(dateFrom, out var dtFrom))
-                    items = items.Where(i => !string.IsNullOrEmpty(i.date_last) &&
-                        DateTime.TryParse(i.date_last, out var d) && d >= dtFrom).ToList();
-                if (!string.IsNullOrEmpty(dateTo) && DateTime.TryParse(dateTo, out var dtTo))
-                    items = items.Where(i => !string.IsNullOrEmpty(i.date_last) &&
-                        DateTime.TryParse(i.date_last, out var d) && d <= dtTo.AddDays(1)).ToList();
-
                 var vm = new RootcheckViewModel
                 {
                     Items = items,
                     Total = items.Count,
-                    AgentId = agentId,
-                    DateFrom = dateFrom,
-                    DateTo = dateTo
+                    AgentId = agentId
                 };
                 return View(vm);
             }

@@ -81,20 +81,21 @@
         <div class="info-banner-sub">
             Mỗi nút sẽ thu thập dữ liệu từ <strong>tất cả agents</strong> trong hệ thống,
             gửi đến Ollama để phân tích và tạo báo cáo an toàn thông tin chuyên sâu bằng tiếng Việt.<br>
-            Có thể lọc theo khoảng thời gian để tập trung vào sự kiện trong giai đoạn cụ thể.
+            Chọn khoảng thời gian từ <strong>ngày sớm nhất</strong> đến <strong>ngày muộn nhất</strong> có trong dữ liệu
+            (Syscheck, Rootcheck, SCA) để tập trung phân tích vào giai đoạn cụ thể.
         </div>
     </div>
 </div>
-@*<%-- Date Filter --%>*@
+@*<%-- Date Filter (giới hạn min/max từ dữ liệu thực tế) --%>*@
 <div class="filter-bar" id="dateFilterBar">
-    <label>📅 Lọc theo thời gian:</label>
-    <input type="date" id="fFrom" style="background:var(--panel);border:1px solid var(--brd);
+    <label>📅 Khoảng thời gian:</label>
+    <input type="date" id="fFrom" disabled style="background:var(--panel);border:1px solid var(--brd);
         color:var(--t1);padding:6px 10px;border-radius:7px;font-size:12px;color-scheme:dark" />
     <span style="color:var(--t3);font-size:12px">đến</span>
-    <input type="date" id="fTo" style="background:var(--panel);border:1px solid var(--brd);
+    <input type="date" id="fTo" disabled style="background:var(--panel);border:1px solid var(--brd);
         color:var(--t1);padding:6px 10px;border-radius:7px;font-size:12px;color-scheme:dark" />
-    <button class="btn-filter" onclick="clearDates()">✕ Xóa</button>
-    <span style="font-size:11px;color:var(--t3)">(để trống = lấy toàn bộ dữ liệu)</span>
+    <button type="button" class="btn-filter" onclick="resetDateRange()">↺ Toàn bộ</button>
+    <span id="dateRangeHint" style="font-size:11px;color:var(--t3)">Đang tải phạm vi ngày...</span>
 </div>
 <div class="analysis-grid">
     @*<%-- AGENTS --%>*@
@@ -273,28 +274,94 @@
     </div>
 </div>
 <script>
+    var dateBounds = { min: null, max: null };
+
     function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
-    function clearDates() {
-        document.getElementById('fFrom').value = '';
-        document.getElementById('fTo').value = '';
+    function applyDateInputBounds(min, max) {
+        var fFrom = document.getElementById('fFrom');
+        var fTo = document.getElementById('fTo');
+        if (min) {
+            fFrom.min = min;
+            fTo.min = min;
+        }
+        if (max) {
+            fFrom.max = max;
+            fTo.max = max;
+        }
+        fFrom.disabled = false;
+        fTo.disabled = false;
+        fFrom.value = min || '';
+        fTo.value = max || '';
     }
+
+    function resetDateRange() {
+        if (dateBounds.min && dateBounds.max) {
+            applyDateInputBounds(dateBounds.min, dateBounds.max);
+        }
+    }
+
+    function isFullDateRange() {
+        var from = document.getElementById('fFrom').value;
+        var to = document.getElementById('fTo').value;
+        return dateBounds.min && dateBounds.max
+            && from === dateBounds.min && to === dateBounds.max;
+    }
+
+    function buildAnalysisParams() {
+        var from = document.getElementById('fFrom').value;
+        var to = document.getElementById('fTo').value;
+        var params = new URLSearchParams({
+            dateFrom: from || '',
+            dateTo: to || '',
+            boundMin: dateBounds.min || '',
+            boundMax: dateBounds.max || ''
+        });
+        params.append('__RequestVerificationToken', getToken());
+        return params;
+    }
+
+    function dateRangeLabel() {
+        var from = document.getElementById('fFrom').value;
+        var to = document.getElementById('fTo').value;
+        if (isFullDateRange()) return 'Toàn bộ dữ liệu (' + from + ' → ' + to + ')';
+        return 'Lọc: ' + from + ' → ' + to;
+    }
+
+    function loadDateBounds() {
+        fetch('/Analysis/DateBounds')
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                var hint = document.getElementById('dateRangeHint');
+                if (!d.success || !d.combined || !d.combined.min || !d.combined.max) {
+                    hint.textContent = 'Không có dữ liệu ngày — phân tích sẽ lấy toàn bộ snapshot';
+                    document.getElementById('fFrom').disabled = true;
+                    document.getElementById('fTo').disabled = true;
+                    return;
+                }
+                dateBounds.min = d.combined.min;
+                dateBounds.max = d.combined.max;
+                applyDateInputBounds(dateBounds.min, dateBounds.max);
+                hint.textContent = 'Có thể chọn từ ' + dateBounds.min + ' đến ' + dateBounds.max;
+            })
+            .catch(function () {
+                document.getElementById('dateRangeHint').textContent = 'Không tải được phạm vi ngày';
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', loadDateBounds);
 
     function doAnalyze(action, title, btnId) {
         var btn = document.getElementById(btnId);
         var progWrap = document.getElementById('prog' + btnId.replace('btn', ''));
-        var from = document.getElementById('fFrom').value;
-        var to = document.getElementById('fTo').value;
+        var params = buildAnalysisParams();
 
         btn.disabled = true; btn.classList.add('ld');
         if (progWrap) progWrap.classList.add('show');
 
-        var params = new URLSearchParams({ dateFrom: from || '', dateTo: to || '' });
-        params.append('__RequestVerificationToken', getToken());
-
         openModal(title);
         document.getElementById('mLoadModel').textContent =
-            (from || to) ? `Lọc: ${from || '...'} → ${to || '...'}` : 'Tất cả dữ liệu — Đang phân tích với Ollama';
+            dateRangeLabel() + ' — Đang phân tích với Ollama';
 
         fetch('/Analysis/' + action, {
             method: 'POST',
@@ -315,17 +382,13 @@
         var progWrap = document.getElementById('progFull');
         var lbl = document.getElementById('lblFull');
         var tracker = document.getElementById('stepTracker');
-        var from = document.getElementById('fFrom').value;
-        var to = document.getElementById('fTo').value;
-
         btn.disabled = true; btn.classList.add('ld');
         progWrap.classList.add('show');
         tracker.style.display = 'flex';
 
         ['st1', 'st2', 'st3', 'st4', 'st5'].forEach(function (id) { setStep(id, ''); });
 
-        var params = new URLSearchParams({ dateFrom: from || '', dateTo: to || '' });
-        params.append('__RequestVerificationToken', getToken());
+        var params = buildAnalysisParams();
 
         var steps = [
             { stId: 'st1', label: 'Agents', action: 'AnalyzeAgents', title: 'Báo cáo Agents' },
@@ -337,7 +400,7 @@
         // Mở modal ngay, sẽ stream từng section vào
         openModal('Báo cáo Tổng hợp — Toàn Hệ Thống');
         document.getElementById('mLoadModel').textContent =
-            (from || to) ? 'Lọc: ' + (from || '...') + ' → ' + (to || '...') : 'Tất cả dữ liệu — Phân tích 4 modules';
+            dateRangeLabel() + ' — Phân tích 4 modules';
 
         var sections = [];   // mảng { title, report } để ghép cuối
 
@@ -369,8 +432,11 @@
             setStep('st5', 'active');
             lbl.textContent = '[5/5] Ghép báo cáo tổng hợp...';
 
-            var dateLabel = (from || to)
-                ? '\n> 📅 Khoảng thời gian: **' + (from || '...') + '** → **' + (to || '...') + '**\n'
+            var from = document.getElementById('fFrom').value;
+            var to = document.getElementById('fTo').value;
+            var dateLabel = (from && to)
+                ? '\n> 📅 Khoảng thời gian: **' + from + '** → **' + to
+                + (isFullDateRange() ? '** (toàn bộ dữ liệu)\n' : '** (đã lọc)\n')
                 : '';
 
             var combined =
