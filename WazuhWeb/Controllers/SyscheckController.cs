@@ -12,9 +12,7 @@ namespace WazuhWeb.Controllers
     public class SyscheckController : Controller
     {
         // GET /Syscheck/Index?agentId=001&dateFrom=&dateTo=
-        public async Task<ActionResult> Index(string agentId = "001",
-                                              string dateFrom = null,
-                                              string dateTo = null)
+        public async Task<ActionResult> Index(string agentId, string dateFrom = null, string dateTo = null)
         {
             string token = Session["WazuhToken"] as string;
             if (string.IsNullOrEmpty(token))
@@ -75,7 +73,7 @@ namespace WazuhWeb.Controllers
         {
             try
             {
-                var json = await WazuhApiClient.GetAsync("/agents?limit=500", token);
+                var json = await WazuhApiClient.GetAsync("/agents", token);
                 var resp = JsonConvert.DeserializeObject<AgentListResponse>(json);
                 return resp?.data?.affected_items ?? new List<Agent>();
             }

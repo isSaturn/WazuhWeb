@@ -12,7 +12,7 @@ namespace WazuhWeb.Controllers
     public class ScaController : Controller
     {
         // GET /Sca/Index?agentId=001
-        public async Task<ActionResult> Index(string agentId = "001")
+        public async Task<ActionResult> Index(string agentId)
         {
             string token = Session["WazuhToken"] as string;
             if (string.IsNullOrEmpty(token))
@@ -64,7 +64,7 @@ namespace WazuhWeb.Controllers
         {
             try
             {
-                var json = await WazuhApiClient.GetAsync("/agents?limit=500", token);
+                var json = await WazuhApiClient.GetAsync("/agents", token);
                 var resp = JsonConvert.DeserializeObject<AgentListResponse>(json);
                 return resp?.data?.affected_items ?? new List<Agent>();
             }

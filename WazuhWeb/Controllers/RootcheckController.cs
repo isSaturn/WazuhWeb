@@ -11,9 +11,7 @@ namespace WazuhWeb.Controllers
 {
     public class RootcheckController : Controller
     {
-        public async Task<ActionResult> Index(string agentId = "001",
-                                              string dateFrom = null,
-                                              string dateTo = null)
+        public async Task<ActionResult> Index(string agentId, string dateFrom = null, string dateTo = null)
         {
             string token = Session["WazuhToken"] as string;
             if (string.IsNullOrEmpty(token))
