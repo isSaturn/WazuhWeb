@@ -81,21 +81,20 @@
         <div class="info-banner-sub">
             Mỗi nút sẽ thu thập dữ liệu từ <strong>tất cả agents</strong> trong hệ thống,
             gửi đến Ollama để phân tích và tạo báo cáo an toàn thông tin chuyên sâu bằng tiếng Việt.<br>
-            Chọn khoảng thời gian từ <strong>ngày sớm nhất</strong> đến <strong>ngày muộn nhất</strong> có trong dữ liệu
-            (Syscheck, Rootcheck, SCA) để tập trung phân tích vào giai đoạn cụ thể.
+            Tùy chọn: chọn <strong>từ ngày</strong> / <strong>đến ngày</strong> bất kỳ để lọc dữ liệu phân tích
+            (Syscheck, Rootcheck, SCA, Agents). Để trống cả hai ô = phân tích toàn bộ snapshot.
         </div>
     </div>
 </div>
-@*<%-- Date Filter (giới hạn min/max từ dữ liệu thực tế) --%>*@
 <div class="filter-bar" id="dateFilterBar">
     <label>📅 Khoảng thời gian:</label>
-    <input type="date" id="fFrom" disabled style="background:var(--panel);border:1px solid var(--brd);
+    <input type="date" id="fFrom" style="background:var(--panel);border:1px solid var(--brd);
         color:var(--t1);padding:6px 10px;border-radius:7px;font-size:12px;color-scheme:dark" />
     <span style="color:var(--t3);font-size:12px">đến</span>
-    <input type="date" id="fTo" disabled style="background:var(--panel);border:1px solid var(--brd);
+    <input type="date" id="fTo" style="background:var(--panel);border:1px solid var(--brd);
         color:var(--t1);padding:6px 10px;border-radius:7px;font-size:12px;color-scheme:dark" />
     <button type="button" class="btn-filter" onclick="resetDateRange()">↺ Toàn bộ</button>
-    <span id="dateRangeHint" style="font-size:11px;color:var(--t3)">Đang tải phạm vi ngày...</span>
+    <span id="dateRangeHint" style="font-size:11px;color:var(--t3)">Để trống = không lọc theo ngày</span>
 </div>
 <div class="analysis-grid">
     @*<%-- AGENTS --%>*@
@@ -274,38 +273,17 @@
     </div>
 </div>
 <script>
-    var dateBounds = { min: null, max: null };
-
     function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
-    function applyDateInputBounds(min, max) {
-        var fFrom = document.getElementById('fFrom');
-        var fTo = document.getElementById('fTo');
-        if (min) {
-            fFrom.min = min;
-            fTo.min = min;
-        }
-        if (max) {
-            fFrom.max = max;
-            fTo.max = max;
-        }
-        fFrom.disabled = false;
-        fTo.disabled = false;
-        fFrom.value = min || '';
-        fTo.value = max || '';
-    }
-
     function resetDateRange() {
-        if (dateBounds.min && dateBounds.max) {
-            applyDateInputBounds(dateBounds.min, dateBounds.max);
-        }
+        document.getElementById('fFrom').value = '';
+        document.getElementById('fTo').value = '';
     }
 
     function isFullDateRange() {
         var from = document.getElementById('fFrom').value;
         var to = document.getElementById('fTo').value;
-        return dateBounds.min && dateBounds.max
-            && from === dateBounds.min && to === dateBounds.max;
+        return !from && !to;
     }
 
     function buildAnalysisParams() {
@@ -313,9 +291,7 @@
         var to = document.getElementById('fTo').value;
         var params = new URLSearchParams({
             dateFrom: from || '',
-            dateTo: to || '',
-            boundMin: dateBounds.min || '',
-            boundMax: dateBounds.max || ''
+            dateTo: to || ''
         });
         params.append('__RequestVerificationToken', getToken());
         return params;
@@ -324,32 +300,11 @@
     function dateRangeLabel() {
         var from = document.getElementById('fFrom').value;
         var to = document.getElementById('fTo').value;
-        if (isFullDateRange()) return 'Toàn bộ dữ liệu (' + from + ' → ' + to + ')';
-        return 'Lọc: ' + from + ' → ' + to;
+        if (isFullDateRange()) return 'Toàn bộ dữ liệu (không lọc ngày)';
+        if (from && to) return 'Lọc: ' + from + ' → ' + to;
+        if (from) return 'Từ ngày ' + from;
+        return 'Đến ngày ' + to;
     }
-
-    function loadDateBounds() {
-        fetch('/Analysis/DateBounds')
-            .then(function (r) { return r.json(); })
-            .then(function (d) {
-                var hint = document.getElementById('dateRangeHint');
-                if (!d.success || !d.combined || !d.combined.min || !d.combined.max) {
-                    hint.textContent = 'Không có dữ liệu ngày — phân tích sẽ lấy toàn bộ snapshot';
-                    document.getElementById('fFrom').disabled = true;
-                    document.getElementById('fTo').disabled = true;
-                    return;
-                }
-                dateBounds.min = d.combined.min;
-                dateBounds.max = d.combined.max;
-                applyDateInputBounds(dateBounds.min, dateBounds.max);
-                hint.textContent = 'Có thể chọn từ ' + dateBounds.min + ' đến ' + dateBounds.max;
-            })
-            .catch(function () {
-                document.getElementById('dateRangeHint').textContent = 'Không tải được phạm vi ngày';
-            });
-    }
-
-    document.addEventListener('DOMContentLoaded', loadDateBounds);
 
     function doAnalyze(action, title, btnId) {
         var btn = document.getElementById(btnId);
@@ -434,10 +389,9 @@
 
             var from = document.getElementById('fFrom').value;
             var to = document.getElementById('fTo').value;
-            var dateLabel = (from && to)
-                ? '\n> 📅 Khoảng thời gian: **' + from + '** → **' + to
-                + (isFullDateRange() ? '** (toàn bộ dữ liệu)\n' : '** (đã lọc)\n')
-                : '';
+            var dateLabel = isFullDateRange()
+                ? ''
+                : '\n> 📅 Khoảng thời gian: **' + dateRangeLabel() + '**\n';
 
             var combined =
                 '# 📋 BÁO CÁO AN TOÀN THÔNG TIN TỔNG HỢP\n' +

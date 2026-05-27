@@ -1,7 +1,5 @@
 using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 
 namespace WazuhWeb.Helpers
 {
@@ -19,11 +17,6 @@ namespace WazuhWeb.Helpers
                 DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
                 out date) 
                 || DateTime.TryParse(value, out date);
-        }
-
-        public static string ToDateOnly(DateTime date)
-        {
-            return date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         }
 
         public static bool IsInRange(string dateValue, string dateFrom, string dateTo)
@@ -51,42 +44,6 @@ namespace WazuhWeb.Helpers
         public static bool HasFilter(string dateFrom, string dateTo)
         {
             return !string.IsNullOrWhiteSpace(dateFrom) || !string.IsNullOrWhiteSpace(dateTo);
-        }
-
-        public static bool IsFullRange(string dateFrom, string dateTo, string boundMin, string boundMax)
-        {
-            if (string.IsNullOrWhiteSpace(boundMin) || string.IsNullOrWhiteSpace(boundMax))
-                return !HasFilter(dateFrom, dateTo);
-
-            return string.Equals(dateFrom, boundMin, StringComparison.Ordinal)
-                && string.Equals(dateTo, boundMax, StringComparison.Ordinal);
-        }
-
-        public static void CollectBounds(IEnumerable<string> dateValues, ref DateTime? min, ref DateTime? max)
-        {
-            if (dateValues == null)
-                return;
-
-            foreach (var raw in dateValues)
-            {
-                if (!TryParseDate(raw, out var dt))
-                    continue;
-
-                var day = dt.Date;
-                if (!min.HasValue || day < min.Value)
-                    min = day;
-                if (!max.HasValue || day > max.Value)
-                    max = day;
-            }
-        }
-
-        public static object BoundsDto(DateTime? min, DateTime? max)
-        {
-            return new
-            {
-                min = min.HasValue ? ToDateOnly(min.Value) : (string)null,
-                max = max.HasValue ? ToDateOnly(max.Value) : (string)null
-            };
         }
 
         public static string BuildDateScope(

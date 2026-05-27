@@ -125,14 +125,6 @@
         <div><div class="sv" style="color:var(--warn)">@wins</div><div class="sk">Win / @lin Linux</div></div>
     </div>
 </div>
-<div class="top-row">
-    <div style="font-size:13px;color:var(--t2)">@total agents</div>
-    <div style="margin-left:auto">
-        <button class="btn-ai" onclick="runAnalysis('AnalyzeAgents','Báo cáo Agents — Toàn hệ thống')">
-            <span class="spin-i"></span><span class="ai-lbl">🤖 Phân tích AI Agents</span>
-        </button>
-    </div>
-</div>
 <div class="card">
     <div class="card-h">
         <span style="font-size:16px">🖥️</span>
@@ -187,17 +179,3 @@
         <div style="padding:40px;text-align:center;color:var(--t3)">Không có agent nào.</div>
     }
 </div>
-<script>function runAnalysis(action,title,extra){
-    var btns=document.querySelectorAll('.btn-ai');
-    btns.forEach(b=>{b.disabled=true;b.classList.add('loading')});
-    openModal(title);
-    document.getElementById('mLoadModel').textContent='Đang kết nối Ollama...';
-    var params=new URLSearchParams(extra||{});
-    params.append('__RequestVerificationToken',getToken());
-    fetch('/Analysis/'+action,{method:'POST',
-        headers:{'Content-Type':'application/x-www-form-urlencoded'},
-        body:params.toString()})
-    .then(r=>r.json()).then(d=>{showResult(d)})
-    .catch(e=>showResult({success:false,error:e.message}))
-    .finally(()=>btns.forEach(b=>{b.disabled=false;b.classList.remove('loading')}));
-}</script>

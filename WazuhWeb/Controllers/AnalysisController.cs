@@ -58,105 +58,6 @@ namespace WazuhWeb.Controllers
         }
 
         // =========================
-        // DATE BOUNDS (min → max từ dữ liệu thực tế)
-        // =========================
-
-        [HttpGet]
-        public async Task<ActionResult> DateBounds()
-        {
-            if (!IsAuth)
-            {
-                return Json(new { success = false, error = "Chưa đăng nhập" }, JsonRequestBehavior.AllowGet);
-            }
-
-            try
-            {
-                var ids = await GetAgentIdsAsync();
-                DateTime? sysMin = null, sysMax = null;
-                DateTime? rootMin = null, rootMax = null;
-                DateTime? scaMin = null, scaMax = null;
-
-                var tasks = ids.Select(async id =>
-                {
-                    try
-                    {
-                        var sysJson = await ApiGetAsync($"/syscheck/{id}");
-                        var sysRoot = JObject.Parse(sysJson);
-                        var sysItems = sysRoot["data"]?["affected_items"] as JArray ?? new JArray();
-                        var sysDates = sysItems.Children<JObject>()
-                            .Where(item =>
-                            {
-                                var chg = item["changes"];
-                                return chg != null && (int)chg > 0;
-                            })
-                            .Select(item => (string)item["date"]);
-
-                        var rootJson = await ApiGetAsync($"/rootcheck/{id}");
-                        var rootObj = JObject.Parse(rootJson);
-                        var rootItems = rootObj["data"]?["affected_items"] as JArray ?? new JArray();
-                        var rootDates = rootItems.Children<JObject>()
-                            .Where(item => (string)item["status"] != "resolved")
-                            .Select(item => (string)item["date_last"]);
-
-                        var scaJson = await ApiGetAsync($"/sca/{id}");
-                        var scaObj = JObject.Parse(scaJson);
-                        var scaItems = scaObj["data"]?["affected_items"] as JArray ?? new JArray();
-                        var scaDates = scaItems.Children<JObject>()
-                            .Where(item =>
-                            {
-                                var failVal = item["fail"];
-                                return failVal != null && (int)failVal > 0;
-                            })
-                            .Select(item => (string)item["end_scan"]);
-
-                        return new { sysDates, rootDates, scaDates };
-                    }
-                    catch
-                    {
-                        return new
-                        {
-                            sysDates = Enumerable.Empty<string>(),
-                            rootDates = Enumerable.Empty<string>(),
-                            scaDates = Enumerable.Empty<string>()
-                        };
-                    }
-                });
-
-                var results = await Task.WhenAll(tasks);
-                foreach (var r in results)
-                {
-                    DateRangeHelper.CollectBounds(r.sysDates, ref sysMin, ref sysMax);
-                    DateRangeHelper.CollectBounds(r.rootDates, ref rootMin, ref rootMax);
-                    DateRangeHelper.CollectBounds(r.scaDates, ref scaMin, ref scaMax);
-                }
-
-                DateTime? combinedMin = null, combinedMax = null;
-                void Merge(DateTime? a, DateTime? b)
-                {
-                    if (!a.HasValue) return;
-                    if (!combinedMin.HasValue || a.Value < combinedMin.Value) combinedMin = a;
-                    if (!combinedMax.HasValue || b.Value > combinedMax.Value) combinedMax = b;
-                }
-                Merge(sysMin, sysMax);
-                Merge(rootMin, rootMax);
-                Merge(scaMin, scaMax);
-
-                return Json(new
-                {
-                    success = true,
-                    syscheck = DateRangeHelper.BoundsDto(sysMin, sysMax),
-                    rootcheck = DateRangeHelper.BoundsDto(rootMin, rootMax),
-                    sca = DateRangeHelper.BoundsDto(scaMin, scaMax),
-                    combined = DateRangeHelper.BoundsDto(combinedMin, combinedMax)
-                }, JsonRequestBehavior.AllowGet);
-            }
-            catch (Exception ex)
-            {
-                return Json(new { success = false, error = ex.Message }, JsonRequestBehavior.AllowGet);
-            }
-        }
-
-        // =========================
         // OLLAMA STATUS
         // =========================
 
@@ -193,9 +94,7 @@ namespace WazuhWeb.Controllers
         [NoTimeout]
         public async Task<ActionResult> AnalyzeAgents(
             string dateFrom = null,
-            string dateTo = null,
-            string boundMin = null,
-            string boundMax = null)
+            string dateTo = null)
         {
             if (!IsAuth)
             {
@@ -234,7 +133,7 @@ namespace WazuhWeb.Controllers
                 int disconnectedCount = agentsList.Count(a => (string)a["status"] == "disconnected");
                 int neverConnectedCount = agentsList.Count(a => (string)a["status"] == "never_connected");
 
-                bool filterApplied = ShouldFilter(dateFrom, dateTo, boundMin, boundMax);
+                bool filterApplied = DateRangeHelper.HasFilter(dateFrom, dateTo);
 
                 var unhealthyAgents = agentsList
                     .Where(a => (string)a["status"] != "active")
@@ -334,9 +233,7 @@ namespace WazuhWeb.Controllers
         [NoTimeout]
         public async Task<ActionResult> AnalyzeSyscheck(
             string dateFrom = null,
-            string dateTo = null,
-            string boundMin = null,
-            string boundMax = null)
+            string dateTo = null)
         {
             if (!IsAuth)
             {
@@ -350,7 +247,7 @@ namespace WazuhWeb.Controllers
             try
             {
                 var ids = await GetAgentIdsAsync();
-                bool filterApplied = ShouldFilter(dateFrom, dateTo, boundMin, boundMax);
+                bool filterApplied = DateRangeHelper.HasFilter(dateFrom, dateTo);
 
                 var tasks = ids.Select(async id =>
                 {
@@ -429,9 +326,7 @@ namespace WazuhWeb.Controllers
         [NoTimeout]
         public async Task<ActionResult> AnalyzeRootcheck(
             string dateFrom = null,
-            string dateTo = null,
-            string boundMin = null,
-            string boundMax = null)
+            string dateTo = null)
         {
             if (!IsAuth)
             {
@@ -445,7 +340,7 @@ namespace WazuhWeb.Controllers
             try
             {
                 var ids = await GetAgentIdsAsync();
-                bool filterApplied = ShouldFilter(dateFrom, dateTo, boundMin, boundMax);
+                bool filterApplied = DateRangeHelper.HasFilter(dateFrom, dateTo);
 
                 var tasks = ids.Select(async id =>
                 {
@@ -519,9 +414,7 @@ namespace WazuhWeb.Controllers
         [NoTimeout]
         public async Task<ActionResult> AnalyzeSca(
             string dateFrom = null,
-            string dateTo = null,
-            string boundMin = null,
-            string boundMax = null)
+            string dateTo = null)
         {
             if (!IsAuth)
             {
@@ -535,7 +428,7 @@ namespace WazuhWeb.Controllers
             try
             {
                 var ids = await GetAgentIdsAsync();
-                bool filterApplied = ShouldFilter(dateFrom, dateTo, boundMin, boundMax);
+                bool filterApplied = DateRangeHelper.HasFilter(dateFrom, dateTo);
 
                 var tasks = ids.Select(async id =>
                 {
@@ -605,18 +498,6 @@ namespace WazuhWeb.Controllers
             {
                 return ErrorJson(ex.Message);
             }
-        }
-
-        private static bool ShouldFilter(
-            string dateFrom,
-            string dateTo,
-            string boundMin,
-            string boundMax)
-        {
-            if (!DateRangeHelper.HasFilter(dateFrom, dateTo))
-                return false;
-
-            return !DateRangeHelper.IsFullRange(dateFrom, dateTo, boundMin, boundMax);
         }
 
         /// <summary>
