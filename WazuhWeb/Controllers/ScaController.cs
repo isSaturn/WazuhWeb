@@ -27,7 +27,7 @@ namespace WazuhWeb.Controllers
             {
                 // Lấy danh sách policy SCA của agent
                 var policiesJson = await WazuhApiClient.GetAsync(
-                    $"/sca/{agentId}?limit=500", token);
+                    $"/sca/{agentId}", token);
                 var policiesResp = JsonConvert.DeserializeObject<ScaSummaryResponse>(policiesJson);
                 var policies = policiesResp?.data?.affected_items ?? new List<ScaPolicy>();
 
@@ -40,7 +40,7 @@ namespace WazuhWeb.Controllers
                 var policy = policies.First();
 
                 var checksJson = await WazuhApiClient.GetAsync(
-                    $"/sca/{agentId}/checks/{policy.policy_id}?limit=500", token);
+                    $"/sca/{agentId}/checks/{policy.policy_id}", token);
                 var checksResp = JsonConvert.DeserializeObject<ScaChecksResponse>(checksJson);
                 var checks = checksResp?.data?.affected_items ?? new List<ScaCheck>();
 

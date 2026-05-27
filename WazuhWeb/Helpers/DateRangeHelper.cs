@@ -17,7 +17,7 @@ namespace WazuhWeb.Helpers
                 value,
                 CultureInfo.InvariantCulture,
                 DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-                out date)
+                out date) 
                 || DateTime.TryParse(value, out date);
         }
 
